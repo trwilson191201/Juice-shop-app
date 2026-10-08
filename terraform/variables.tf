@@ -48,7 +48,7 @@ variable "tags" {
   type        = map(string)
   default = {
     Project = "upwind-sa-assessment"
-    Owner   = "trwilson"
+    Owner   = "taylor-wilson"
     Env     = "lab"
   }
 }
