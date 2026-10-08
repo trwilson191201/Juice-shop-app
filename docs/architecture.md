@@ -22,7 +22,6 @@ flowchart TB
                         subgraph NS["Namespace: juice-shop"]
                             Pod["Juice Shop Pod<br/>bkimminich/juice-shop:v17.1.1<br/>:3000"]
                         end
-                        Falco["(optional) Falco DaemonSet<br/>runtime detection"]
                     end
                 end
             end
@@ -33,8 +32,12 @@ flowchart TB
     ELB -->|:3000| Pod
     Pod -.->|egress via| NAT
     NAT -.-> Internet
-    Falco -.->|syscall events| Pod
 ```
+
+> This is the **as-built lab** — intentionally minimal and vulnerable. The more
+> secure target architecture (WAF, runtime detection with Falco, IRSA, etc.) is
+> covered as recommendations in [slides-outline.md](slides-outline.md), not deployed
+> here. The point of the lab is to exploit the vulnerable baseline first.
 
 ## Request path
 
@@ -55,8 +58,11 @@ flowchart TB
 | Add-ons | CoreDNS, kube-proxy, VPC CNI, Pod Identity Agent | Core cluster function |
 | Workload | Juice Shop Deployment + Service | The vulnerable target app |
 | Exposure | Classic ELB (in-tree) | Public entry point for the demo |
-| Controls (hardened) | PSA `restricted`, securityContext, NetworkPolicy | Blast-radius reduction |
-| Detection (optional) | Falco DaemonSet | Runtime syscall/anomaly alerts |
+| Controls (hardened overlay) | PSA `restricted`, securityContext, NetworkPolicy | Blast-radius reduction |
+
+> Runtime detection (Falco) and the other production controls are **not deployed in
+> this lab** — they live in the secure-architecture recommendations, so the baseline
+> stays exploitable for the demo.
 
 ## Design choices & tradeoffs (talk track)
 
@@ -66,8 +72,8 @@ flowchart TB
 - **Terraform over eksctl/ClickOps.** Reproducible, reviewable, destroyable in one
   command — the right signal for a solutions-architect role. Tradeoff: more upfront code.
 - **Managed node group over Fargate.** Juice Shop is a single stateful-ish container
-  and the exploits are more interesting on a real node (host namespaces, Falco can
-  watch syscalls). Fargate would hide the node layer. Tradeoff: I patch/scale nodes.
+  and the exploits are more interesting on a real node (host namespaces, node-level
+  runtime visibility). Fargate would hide the node layer. Tradeoff: I patch/scale nodes.
 - **Private nodes + single NAT.** Realistic posture (nodes never public) while keeping
   lab cost down. Tradeoff: single NAT is a non-HA SPOF — fine for a lab, not prod.
 - **LoadBalancer Service (Classic ELB) over ALB Ingress Controller.** Zero extra
