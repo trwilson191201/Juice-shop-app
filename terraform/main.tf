@@ -49,6 +49,11 @@ module "eks" {
   cluster_name    = var.cluster_name
   cluster_version = var.kubernetes_version
 
+  # Control-plane logging to CloudWatch — all types, incl. 'audit' and
+  # 'authenticator'. Audit logs are how you'd detect the API-level attacks in the
+  # demo, so this is a deliberate detection control, not just a checkbox.
+  cluster_enabled_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+
   # Public endpoint so you can reach it from your laptop; restrict with admin_cidr.
   cluster_endpoint_public_access       = true
   cluster_endpoint_public_access_cidrs = [var.admin_cidr]
@@ -73,6 +78,16 @@ module "eks" {
       min_size       = 1
       max_size       = 3
       desired_size   = var.node_desired_size
+
+      # Enforce IMDSv2 (http_tokens=required) and a hop limit of 1 so containers
+      # cannot reach the instance metadata service. This blocks the classic
+      # pod-compromise -> steal node IAM role credentials via SSRF path.
+      metadata_options = {
+        http_endpoint               = "enabled"
+        http_tokens                 = "required"
+        http_put_response_hop_limit = 1
+        instance_metadata_tags      = "disabled"
+      }
     }
   }
 

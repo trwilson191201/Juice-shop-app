@@ -6,6 +6,10 @@ crash.log
 *.tfvars
 *.tfvars.json
 !example.tfvars
+
+# Plan artifacts (may embed account detail) — regenerate, don't commit
+tfplan
+plan.json
 override.tf
 override.tf.json
 *_override.tf

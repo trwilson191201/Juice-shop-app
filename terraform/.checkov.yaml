@@ -1,0 +1,35 @@
+# Checkov configuration for the Upwind lab Terraform.
+#
+# Two findings were FIXED in code rather than skipped:
+#   CKV_AWS_37  - EKS control-plane logging enabled for all types (incl. audit)
+#   CKV_AWS_341 - node IMDSv2 required + hop limit 1 (blocks pod->IMDS cred theft)
+#
+# The checks below are intentionally skipped, each with justification. They are
+# either scanner false-positives at plan time or conscious lab tradeoffs. In a
+# production build the "accepted-lab" items would be revisited.
+skip-check:
+  # --- False positives ---
+  # We run EKS 1.36, which IS in AWS standard support (verified via
+  # `aws eks describe-cluster-versions`). Checkov's bundled version list lags.
+  - CKV_AWS_339
+  # EIP attaches to the NAT gateway on apply; only looks unattached in a plan.
+  - CKV2_AWS_19
+  # Cluster/node security groups attach to the ENIs on apply; plan-time artifact.
+  - CKV2_AWS_5
+
+  # --- Accepted lab tradeoffs (would fix in prod) ---
+  # Public API endpoint is required so we can kubectl from the demo laptop.
+  # Mitigated by locking cluster_endpoint_public_access_cidrs to admin_cidr.
+  - CKV_AWS_38
+  - CKV_AWS_39
+  # Node egress 0.0.0.0/0 is the EKS module default; nodes need to pull images
+  # and reach the API. Pod-level egress is constrained by the hardened
+  # NetworkPolicy (default-deny) instead.
+  - CKV_AWS_382
+  # CloudWatch log group KMS encryption and 1-year retention add cost/complexity
+  # with no value for an ephemeral lab that is destroyed after the demo.
+  - CKV_AWS_158
+  - CKV_AWS_338
+  # VPC flow logs are a strong prod control (network visibility / detection) but
+  # add cost; listed as a recommendation in the secure-architecture slide.
+  - CKV2_AWS_11
