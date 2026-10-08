@@ -11,9 +11,9 @@ variable "cluster_name" {
 }
 
 variable "kubernetes_version" {
-  description = "EKS control plane version."
+  description = "EKS control plane version. Keep this in AWS 'standard support' — extended support carries a ~6x control-plane surcharge. Checked 2026-10: 1.34-1.37 are standard; 1.36 is the AWS default."
   type        = string
-  default     = "1.31"
+  default     = "1.36"
 }
 
 variable "vpc_cidr" {

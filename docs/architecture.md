@@ -53,7 +53,7 @@ flowchart TB
 | Layer | Component | Purpose |
 |-------|-----------|---------|
 | Network | VPC, 2 public + 2 private subnets, IGW, 1 NAT GW | Isolation; nodes stay private |
-| Control plane | EKS managed control plane (v1.31) | API server, scheduler, etcd (AWS-run) |
+| Control plane | EKS managed control plane (v1.36, standard support) | API server, scheduler, etcd (AWS-run) |
 | Compute | Managed node group, 2× t3.medium | Runs the workload pods |
 | Add-ons | CoreDNS, kube-proxy, VPC CNI, Pod Identity Agent | Core cluster function |
 | Workload | Juice Shop Deployment + Service | The vulnerable target app |
