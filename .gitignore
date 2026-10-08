@@ -10,7 +10,8 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-.terraform.lock.hcl
+# NOTE: .terraform.lock.hcl is intentionally committed (HashiCorp best practice)
+# so provider versions are pinned and reproducible across machines.
 
 # AWS / kube credentials — never commit
 kubeconfig
