@@ -15,6 +15,17 @@ echo "$JUICE"
 > Tip: do every exploit through the browser (visual, convincing) **and** show the raw
 > `curl` so the audience sees the actual request. Keep DevTools open on the Network tab.
 
+> **Validated locally against `bkimminich/juice-shop:v17.1.1`** (Docker). All three
+> exploits below confirmed working: SQLi logs in as `admin@juice-sh.op`; the admin
+> token reads baskets 2 and 3 (other users); `/ftp/acquisitions.md` returns the
+> confidential file.
+>
+> **Quoting gotcha:** the SQLi payload must send the email as a single `'`. The bash
+> `curl` examples here are correct. If you run it from **PowerShell** instead, build
+> the JSON from an object so the quote isn't doubled —
+> `@{email="' OR 1=1--";password="x"} | ConvertTo-Json` — a naive here-string sends
+> `'' OR 1=1--` and you get a 401.
+
 ---
 
 ## Vuln 1 — A03:2021 Injection (SQL injection → auth bypass)
