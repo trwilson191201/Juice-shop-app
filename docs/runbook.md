@@ -131,8 +131,8 @@ the first foothold that chains into the others.
   Security Admission `restricted`; drop capabilities, non-root, read-only root FS so a
   foothold can't be weaponized; NetworkPolicy to isolate the pod; secrets in AWS
   Secrets Manager / External Secrets, never in images or env.
-- **Detection:** requests to known-sensitive paths (`/ftp/`, `/administration`); Falco
-  rules for a shell spawned in the container or writes to unexpected paths.
+- **Detection:** requests to known-sensitive paths (`/ftp/`, `/administration`);
+  runtime detection flagging a shell spawned in the container or writes to unexpected paths.
 
 > **Optional 4th / substitute — A07 Identification & Auth Failures (JWT).** Juice Shop
 > signs JWTs weakly; you can forge/alter a token (e.g. `alg` confusion) to impersonate

@@ -35,7 +35,7 @@ flowchart TB
 ```
 
 > This is the **as-built lab** — intentionally minimal and vulnerable. The more
-> secure target architecture (WAF, runtime detection with Falco, IRSA, etc.) is
+> secure target architecture (WAF, runtime detection, IRSA, etc.) is
 > covered as recommendations in [slides-outline.md](slides-outline.md), not deployed
 > here. The point of the lab is to exploit the vulnerable baseline first.
 
@@ -60,7 +60,7 @@ flowchart TB
 | Exposure | Classic ELB (in-tree) | Public entry point for the demo |
 | Controls (hardened overlay) | PSA `restricted`, securityContext, NetworkPolicy | Blast-radius reduction |
 
-> Runtime detection (Falco) and the other production controls are **not deployed in
+> Runtime detection and the other production controls are **not deployed in
 > this lab** — they live in the secure-architecture recommendations, so the baseline
 > stays exploitable for the demo.
 

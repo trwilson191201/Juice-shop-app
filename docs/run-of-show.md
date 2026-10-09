@@ -156,7 +156,7 @@ see it." This is the synthesis of what they just watched.
 
 **Slide · If this were production (21:30–23:00)**
 What I'd add for real: WAF at the edge, scoped identities + managed secrets, scanned
-images. **Lead with runtime detection (Falco)** — "you ship assuming the code has bugs,
+images. **Lead with runtime detection** — "you ship assuming the code has bugs,
 so you need to see the moment one gets used." Note it's a recommendation here, kept off
 the lab on purpose.
 

@@ -37,7 +37,7 @@ production.** Here's how I'd respond, mapped to the NIST IR lifecycle.
 ## 6. Post-incident / lessons learned
 - Blameless postmortem: timeline, root cause, what detection worked / was missing.
 - Action items: SAST/DAST in CI to catch injection pre-prod, WAF by default, DB audit
-  logging, runtime detection (Falco) with alerting, NetworkPolicy as standard baseline.
+  logging, runtime detection with alerting, NetworkPolicy as standard baseline.
 - Feed detections back as permanent rules so the same class is caught earlier next time.
 
 ## The one-liner for the panel

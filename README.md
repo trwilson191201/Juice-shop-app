@@ -96,6 +96,7 @@ cd terraform && terraform destroy
 ## Production upgrade paths (the "with more time" slide)
 - **ALB Ingress + AWS WAF** via the AWS Load Balancer Controller (IRSA) instead of a
   Classic ELB — path routing, TLS, managed WAF rules.
-- **Falco** DaemonSet + alerting for runtime detection (ties directly to Upwind's space).
+- **Runtime detection** agent + alerting (a node-level layer that watches container
+  behavior and flags anomalies like a shell spawning or unexpected egress).
 - **IRSA / Pod Identity** for scoped pod permissions; **External Secrets** → AWS Secrets
   Manager; **image scanning** (ECR/Trivy) and **GitOps** (Argo CD) for the full pipeline.
