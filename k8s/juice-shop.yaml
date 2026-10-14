@@ -62,6 +62,13 @@ metadata:
     service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
 spec:
   type: LoadBalancer
+  # Restrict who can reach the public ELB. Even though this baseline is
+  # deliberately vulnerable, it should not be open to the whole internet —
+  # Kubernetes writes these CIDRs into the ELB security group automatically.
+  # Set this to your own IP (curl -s https://checkip.amazonaws.com) as a /32.
+  # Replace before deploying from a different network.
+  loadBalancerSourceRanges:
+    - 172.96.72.161/32
   selector:
     app: juice-shop
   ports:
