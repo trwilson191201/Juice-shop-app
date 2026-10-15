@@ -1,0 +1,127 @@
+<svg width="960" height="846" viewBox="0 0 960 846" role="img" xmlns="http://www.w3.org/2000/svg" font-family="'Helvetica Neue', Arial, sans-serif">
+<title>EKS security lab — detailed app + infra architecture</title>
+<desc>An operator reaches the AWS-managed EKS control plane via kubectl locked to an admin CIDR. An attacker reaches a public Classic ELB over HTTP, which forwards to the Juice Shop pod on port 3000 in a private subnet. Inside the pod, an Express/Node REST API serves an Angular SPA, validates weak JWTs, queries a SQLite database, and serves static files from /ftp. Three vulnerabilities are mapped to components: A03 SQL injection at the login query, A01 broken access control (IDOR) at /rest/basket/:id, and A05 security misconfiguration at /ftp and the admin route.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+</defs>
+
+<rect x="0" y="0" width="960" height="846" fill="#FFFFFF"/>
+<text x="28" y="28" text-anchor="start" font-size="16" font-weight="600" fill="#2C2C2A">EKS security lab — app &amp; infrastructure architecture</text>
+
+<!-- Operator / kubectl -->
+<rect x="28" y="44" width="200" height="46" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="128" y="63" text-anchor="middle" font-size="13" font-weight="500" fill="#2C2C2A">Operator (you)</text>
+<text x="128" y="79" text-anchor="middle" font-size="11" fill="#5F5E5A">kubectl / Terraform</text>
+
+<!-- Attacker -->
+<rect x="400" y="44" width="200" height="46" rx="8" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/>
+<text x="500" y="63" text-anchor="middle" font-size="13" font-weight="500" fill="#712B13">Attacker / demo laptop</text>
+<text x="500" y="79" text-anchor="middle" font-size="11" fill="#993C1D">browser + curl</text>
+
+<!-- AWS account outer -->
+<rect x="28" y="104" width="904" height="652" rx="8" fill="none" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="44" y="124" text-anchor="start" font-size="12" fill="#5F5E5A">AWS account · region us-east-1</text>
+
+<!-- EKS control plane -->
+<rect x="44" y="134" width="300" height="52" rx="6" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="194" y="155" text-anchor="middle" font-size="13" font-weight="500" fill="#0C447C">EKS control plane (v1.36)</text>
+<text x="194" y="172" text-anchor="middle" font-size="11" fill="#185FA5">AWS-managed API · endpoint locked to admin CIDR</text>
+
+<!-- VPC -->
+<rect x="44" y="198" width="872" height="546" rx="8" fill="none" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="60" y="218" text-anchor="start" font-size="12" fill="#5F5E5A">Lab VPC · 10.0.0.0/16</text>
+
+<!-- Public subnets -->
+<rect x="60" y="228" width="840" height="86" rx="8" fill="none" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="76" y="247" text-anchor="start" font-size="12" fill="#5F5E5A">Public subnets · 2 AZs · IGW</text>
+<rect x="78" y="256" width="180" height="48" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="168" y="276" text-anchor="middle" font-size="13" font-weight="500" fill="#2C2C2A">NAT gateway</text>
+<text x="168" y="292" text-anchor="middle" font-size="11" fill="#5F5E5A">single · non-HA (lab)</text>
+<rect x="700" y="256" width="182" height="48" rx="6" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+<text x="791" y="276" text-anchor="middle" font-size="13" font-weight="500" fill="#0C447C">Public ELB (Classic)</text>
+<text x="791" y="292" text-anchor="middle" font-size="11" fill="#185FA5">internet-facing · :80</text>
+
+<!-- Private subnets -->
+<rect x="60" y="326" width="840" height="406" rx="8" fill="none" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="76" y="345" text-anchor="start" font-size="12" fill="#5F5E5A">Private subnets · 2 AZs (nodes have no public IP)</text>
+
+<!-- Node group -->
+<rect x="78" y="354" width="804" height="368" rx="8" fill="none" stroke="#888780" stroke-width="0.5"/>
+<text x="94" y="373" text-anchor="start" font-size="12" fill="#5F5E5A">EKS managed node group · 2× t3.medium · add-ons: CoreDNS, kube-proxy, VPC CNI, Pod Identity</text>
+
+<!-- Namespace -->
+<rect x="96" y="382" width="768" height="330" rx="8" fill="none" stroke="#B4B2A9" stroke-width="0.5" stroke-dasharray="4 3"/>
+<text x="112" y="401" text-anchor="start" font-size="12" fill="#5F5E5A">Namespace: juice-shop  ·  Service (LoadBalancer) → pod :3000</text>
+
+<!-- Pod -->
+<rect x="116" y="410" width="728" height="288" rx="8" fill="#F4FBF8" stroke="#0F6E56" stroke-width="1"/>
+<text x="480" y="431" text-anchor="middle" font-size="13" font-weight="600" fill="#04342C">Juice Shop pod · bkimminich/juice-shop:v17.1.1 · container :3000 (Node.js / Express)</text>
+
+<!-- App layer: left column (request handling) -->
+<rect x="148" y="448" width="300" height="52" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="298" y="469" text-anchor="middle" font-size="13" font-weight="500" fill="#04342C">Angular SPA (frontend)</text>
+<text x="298" y="486" text-anchor="middle" font-size="11" fill="#0F6E56">served as static assets by Express</text>
+
+<rect x="148" y="512" width="300" height="52" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="298" y="533" text-anchor="middle" font-size="13" font-weight="500" fill="#04342C">Express REST API</text>
+<text x="298" y="550" text-anchor="middle" font-size="11" fill="#0F6E56">routes: /rest/* · /api/*</text>
+
+<rect x="148" y="576" width="300" height="52" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="298" y="597" text-anchor="middle" font-size="13" font-weight="500" fill="#04342C">Auth middleware (JWT)</text>
+<text x="298" y="614" text-anchor="middle" font-size="11" fill="#0F6E56">weakly signed · authn only, no object authz</text>
+
+<!-- App layer: right column (data & assets) -->
+<rect x="512" y="448" width="300" height="52" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="662" y="469" text-anchor="middle" font-size="13" font-weight="500" fill="#04342C">SQLite database</text>
+<text x="662" y="486" text-anchor="middle" font-size="11" fill="#0F6E56">Users · Baskets · Orders · Products</text>
+
+<rect x="512" y="512" width="300" height="52" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="662" y="533" text-anchor="middle" font-size="13" font-weight="500" fill="#04342C">Static file serving</text>
+<text x="662" y="550" text-anchor="middle" font-size="11" fill="#0F6E56">/ftp/* exposed publicly</text>
+
+<rect x="512" y="576" width="300" height="52" rx="6" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+<text x="662" y="597" text-anchor="middle" font-size="13" font-weight="500" fill="#04342C">Admin panel route</text>
+<text x="662" y="614" text-anchor="middle" font-size="11" fill="#0F6E56">/#/administration · client-side guard only</text>
+
+<!-- Flows -->
+<!-- operator -> control plane -->
+<path d="M128 90 L128 160 L44 160" stroke="#888780" stroke-width="1.5" fill="none" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+<text x="136" y="116" text-anchor="start" font-size="11" fill="#5F5E5A">kubectl :443 (admin IP)</text>
+<!-- attacker -> ELB -->
+<path d="M500 90 L500 240 L700 240" stroke="#888780" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+<text x="508" y="150" text-anchor="start" font-size="11" fill="#5F5E5A">HTTP :80</text>
+<!-- ELB -> pod/Express -->
+<path d="M791 304 L791 406 L298 406 L298 512" stroke="#888780" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+<text x="805" y="360" text-anchor="start" font-size="11" fill="#5F5E5A">forward to pod :3000</text>
+<!-- Express -> SPA (serves) -->
+<path d="M270 512 L270 500" stroke="#888780" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+<text x="150" y="508" text-anchor="start" font-size="10" fill="#5F5E5A">serves UI</text>
+<!-- Express -> Auth -->
+<path d="M298 564 L298 576" stroke="#888780" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+<!-- Express -> SQLite -->
+<path d="M448 526 L480 526 L480 474 L512 474" stroke="#888780" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+<text x="455" y="492" text-anchor="start" font-size="10" fill="#5F5E5A">SQL</text>
+<!-- Express -> static /ftp -->
+<path d="M448 538 L512 538" stroke="#888780" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+<!-- pod egress -> NAT -->
+<path d="M116 560 L52 560 L52 280 L78 280" stroke="#888780" stroke-width="1.5" fill="none" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+<text x="56" y="420" text-anchor="start" font-size="11" fill="#5F5E5A">egress via NAT</text>
+
+<!-- Vuln badges -->
+<circle cx="500" cy="452" r="12" fill="#FDF1E3" stroke="#C2410C" stroke-width="1"/><text x="500" y="456" text-anchor="middle" font-size="12" font-weight="700" fill="#7C2D12">1</text>
+<circle cx="440" cy="516" r="12" fill="#FDF1E3" stroke="#C2410C" stroke-width="1"/><text x="440" y="520" text-anchor="middle" font-size="12" font-weight="700" fill="#7C2D12">2</text>
+<circle cx="524" cy="516" r="12" fill="#FDF1E3" stroke="#C2410C" stroke-width="1"/><text x="524" y="520" text-anchor="middle" font-size="12" font-weight="700" fill="#7C2D12">3</text>
+<circle cx="524" cy="580" r="12" fill="#FDF1E3" stroke="#C2410C" stroke-width="1"/><text x="524" y="584" text-anchor="middle" font-size="12" font-weight="700" fill="#7C2D12">3</text>
+
+<!-- Legend: colors -->
+<rect x="28" y="768" width="12" height="12" rx="3" fill="#FAECE7" stroke="#993C1D" stroke-width="0.5"/><text x="46" y="778" text-anchor="start" font-size="11" fill="#5F5E5A">external threat</text>
+<rect x="150" y="768" width="12" height="12" rx="3" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/><text x="168" y="778" text-anchor="start" font-size="11" fill="#5F5E5A">AWS entry / managed</text>
+<rect x="310" y="768" width="12" height="12" rx="3" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/><text x="328" y="778" text-anchor="start" font-size="11" fill="#5F5E5A">app component / workload</text>
+<rect x="490" y="768" width="12" height="12" rx="3" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/><text x="508" y="778" text-anchor="start" font-size="11" fill="#5F5E5A">network / infra</text>
+<circle cx="636" cy="774" r="7" fill="#FDF1E3" stroke="#C2410C" stroke-width="1"/><text x="650" y="778" text-anchor="start" font-size="11" fill="#5F5E5A">vulnerability</text>
+
+<!-- Legend: vulns -->
+<text x="28" y="800" text-anchor="start" font-size="11" fill="#7C2D12"><tspan font-weight="700">1 · A03 Injection</tspan> — login builds SQL by string concatenation → auth bypass, full DB read</text>
+<text x="28" y="818" text-anchor="start" font-size="11" fill="#7C2D12"><tspan font-weight="700">2 · A01 Broken Access Control</tspan> — GET /rest/basket/:id checks authn but not ownership → IDOR, enumerable</text>
+<text x="28" y="836" text-anchor="start" font-size="11" fill="#7C2D12"><tspan font-weight="700">3 · A05 Security Misconfiguration</tspan> — /ftp/* served publicly, admin route exposed, verbose errors</text>
+</svg>
