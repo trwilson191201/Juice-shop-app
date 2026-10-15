@@ -1,6 +1,9 @@
 # Demo Run-of-Show Cheat Sheet
 
 Copy-paste commands for the live demo, in order, tagged by environment.
+Scope: **three live exploits**, then talk through the fixes. The hardened state
+is **described, not run live** (see Slides 12–13), so there are no cluster changes
+to make and no NetworkPolicy enforcement to enable.
 
 ```
 ================================================================
@@ -22,18 +25,6 @@ PRE-DEMO (do BEFORE you present — not on stage)
 [PS] Confirm app is up (expect HTTP 200):
   curl.exe -s -o NUL -w "%{http_code}`n" $JUICE
 
-[PS] REQUIRED: enable NetworkPolicy enforcement (cluster has it OFF).
-     Without this the egress step won't block. Wait ~1-2 min after.
-  aws eks update-addon --cluster-name <cluster> --addon-name vpc-cni --configuration-values '{"enableNetworkPolicy":"true"}'
-
-[PS] Pre-test the hardened rollout reaches Ready, then REVERT so you
-     start the demo on the vulnerable baseline:
-  kubectl apply -f k8s/hardened/juice-shop-hardened.yaml
-  kubectl -n juice-shop rollout status deploy/juice-shop --timeout=120s
-  kubectl -n juice-shop get pods          # expect Running 1/1
-  kubectl apply -f k8s/juice-shop.yaml    # REVERT to baseline for the live demo
-  kubectl delete networkpolicy --all -n juice-shop
-
 Open browser to $JUICE, keep DevTools (F12) on the Network tab.
 Have a backup screen recording of each exploit ready.
 
@@ -51,7 +42,8 @@ SLIDE 7  —  VULN 1: A03 INJECTION  (SQLi auth bypass)   ~4 min
   $body = @{ email = "' OR 1=1--"; password = "x" } | ConvertTo-Json
   Invoke-RestMethod -Uri "$JUICE/rest/user/login" -Method Post -ContentType 'application/json' -Body $body
 
-Say: full admin session, no credentials. A UNION payload dumps tables.
+ATTACKER GAINS: full admin session, no credentials. A UNION payload
+dumps arbitrary tables -> full DB read.
 
 ----------------------------------------------------------------
 SLIDE 9  —  VULN 2: A01 BROKEN ACCESS CONTROL  (IDOR)   ~4 min
@@ -74,7 +66,9 @@ BEAT 2 — the app renders someone else's cart:
   -> then click "Your Basket" / reload. UI shows basket 1's items.
   (If sessionStorage bid is null, use: localStorage.setItem('bid','1'))
 
-Say: enumerable across all users = bulk PII harvest, not one cart.
+ATTACKER GAINS: enumerable across all users = bulk PII / order-data
+harvest, not one cart. Points to the same missing check on orders,
+addresses, payment -> and possibly write operations (fraud).
 
 ----------------------------------------------------------------
 SLIDE 11 —  VULN 3: A05 SECURITY MISCONFIG              ~3 min
@@ -87,50 +81,36 @@ SLIDE 11 —  VULN 3: A05 SECURITY MISCONFIG              ~3 min
           POPULATES; anonymous gets bounced by the client-side guard):
   http://a759ede5a033d4421b00bdd107863390-1869063510.us-east-1.elb.amazonaws.com/#/administration
 
-Say: misconfig is usually the first foothold that chains into the rest.
+ATTACKER GAINS: info disclosure (internal docs/config) + privileged
+screens. Misconfig is usually the first foothold that chains into
+the rest.
 
 ----------------------------------------------------------------
-SLIDE 13 —  HARDENING IN ACTION                         ~4 min
+SLIDES 12-13 —  FIXES + HARDENING                       ~6 min
 ----------------------------------------------------------------
 
-STEP A — show egress works NOW (before hardening). Run from [PS]:
-  kubectl -n juice-shop exec deploy/juice-shop -- /nodejs/bin/node -e "const https=require('https');const r=https.get('https://example.com',res=>{console.log('ALLOWED - reached internet (HTTP '+res.statusCode+')');process.exit(0)});r.on('error',e=>{console.log('BLOCKED - '+e.code);process.exit(0)});r.setTimeout(5000,()=>{console.log('BLOCKED - timed out, no egress');r.destroy();process.exit(0)});"
-  -> expect: ALLOWED - reached internet (HTTP 200)
+TALK ONLY — no live commands. Walk the three-column frame (In the app
+/ Around it / Watching for it) from the slides. For each exploit give
+the real fix:
+  A03 Injection      -> parameterized queries (app); WAF + egress limits.
+  A01 Access control -> per-object ownership checks (code; infra can't
+                        fix logic — the honest "platform can't save you").
+  A05 Misconfig      -> prod config, delete sample files, gate admin;
+                        THIS is where k8s earns its keep (PSA restricted,
+                        non-root, read-only FS, drop caps, default-deny).
 
-STEP B — apply the hardened overlay [PS] (narrate slide 13 bullets
-         for ~30-60s while it rolls):
-  kubectl label ns juice-shop pod-security.kubernetes.io/enforce=restricted --overwrite
-  kubectl apply -f k8s/hardened/juice-shop-hardened.yaml
-  kubectl -n juice-shop rollout status deploy/juice-shop --timeout=120s
-
-STEP C — (optional) prove the SQLi STILL works: re-run the Slide 7
-         [PS] Invoke-RestMethod. It still returns a token.
-  Say: "Hardening didn't patch the code — the bug survives."
-
-STEP D — re-run the SAME egress probe [PS] (identical to Step A):
-  kubectl -n juice-shop exec deploy/juice-shop -- /nodejs/bin/node -e "const https=require('https');const r=https.get('https://example.com',res=>{console.log('ALLOWED - reached internet (HTTP '+res.statusCode+')');process.exit(0)});r.on('error',e=>{console.log('BLOCKED - '+e.code);process.exit(0)});r.setTimeout(5000,()=>{console.log('BLOCKED - timed out, no egress');r.destroy();process.exit(0)});"
-  -> expect: BLOCKED - timed out, no egress
-  Say: "The damage doesn't. Bug's still there, but it can't phone home."
+Thesis: the app bug survives hardening, but the blast radius shrinks —
+a foothold can't exfiltrate, escalate, or move laterally. Assume bugs;
+constrain and detect at runtime.
 
 ================================================================
 GOTCHAS
-- Run kubectl egress probe from PowerShell, NOT Git Bash (Bash
-  mangles /nodejs/bin/node). If forced to use Bash, prefix:
-  MSYS_NO_PATHCONV=1 kubectl ...
-- Image is distroless: no shell, no curl, node off PATH -> must use
-  /nodejs/bin/node. Don't use `sh -c 'curl ...'`.
-- Egress only BLOCKS if NetworkPolicy enforcement is ON (pre-demo step).
-- IDOR token in localStorage is quote-wrapped -> JSON.parse unwraps it.
+- SQLi from PowerShell: build JSON from an object (@{..} | ConvertTo-Json)
+  or the single quote gets doubled and you get a 401.
+- IDOR token in localStorage is quote-wrapped -> JSON.parse unwraps it,
+  or you send "Bearer \"eyJ...\"" and get a token error.
+- Admin page (#/administration) only populates if logged in as admin.
+- Register the IDOR user BEFORE you need it; new users start empty, so
+  read the lower ids (1-6), which belong to seeded users.
 ================================================================
 ```
-
-## Notes / verify before relying on these
-
-- **`kubectl apply -f k8s/juice-shop.yaml` as the revert** assumes that's the
-  un-hardened baseline manifest — confirm it restores the vulnerable Deployment and
-  removes the read-only / securityContext settings.
-- **`curl.exe`** is deliberate — PowerShell's `curl` is an alias for `Invoke-WebRequest`
-  with different flags, so `curl.exe` forces the real binary.
-- The egress probe and image internals (`/nodejs/bin/node`, distroless, no shell) were
-  validated live against `bkimminich/juice-shop:v17.1.1`; NetworkPolicy enforcement was
-  found **disabled** on the cluster and must be enabled for the BLOCKED result.
