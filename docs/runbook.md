@@ -188,24 +188,48 @@ misconfig one is also the natural bridge to the Kubernetes hardening story.
 After the three exploits, apply the hardened overlay and re-run a probe to show a
 control working:
 
-```bash
+```powershell
 # Flip the namespace to the 'restricted' Pod Security Standard
 kubectl label ns juice-shop pod-security.kubernetes.io/enforce=restricted --overwrite
 
 # Apply hardened deployment + default-deny NetworkPolicy
 kubectl apply -f k8s/hardened/juice-shop-hardened.yaml
 
-# Prove egress is now blocked: exec in and try to reach the internet — it hangs/fails
-kubectl -n juice-shop exec deploy/juice-shop -- \
-  sh -c 'curl -m 5 -s https://example.com || echo BLOCKED-BY-NETWORKPOLICY'
+# Wait for the new (hardened) pod to actually come up before probing
+kubectl -n juice-shop rollout status deploy/juice-shop --timeout=120s
+
+# Prove egress is now blocked. Re-run this SAME probe before and after hardening:
+#   before → "ALLOWED - reached internet (HTTP 200)"
+#   after  → "BLOCKED - timed out, no egress"
+kubectl -n juice-shop exec deploy/juice-shop -- /nodejs/bin/node -e "const https=require('https');const r=https.get('https://example.com',res=>{console.log('ALLOWED - reached internet (HTTP '+res.statusCode+')');process.exit(0)});r.on('error',e=>{console.log('BLOCKED - '+e.code);process.exit(0)});r.setTimeout(5000,()=>{console.log('BLOCKED - timed out, no egress');r.destroy();process.exit(0)});"
 ```
+
+> **Image gotcha (validated on v17.1.1):** the Juice Shop image is **distroless** — no
+> shell, no `curl`/`wget`, and `node` is **not on `$PATH`**. So `exec ... -- sh -c
+> 'curl ...'` fails with an OCI "executable not found" error, not a clean BLOCKED. Call
+> the Node binary by absolute path (`/nodejs/bin/node`, v20.17.0) and do the HTTPS probe
+> in JavaScript, as above. DNS (port 53) is allowed by the policy, so the hostname
+> resolves but the :443 connection is dropped → the 5s timeout prints BLOCKED.
+>
+> **Run it from PowerShell, not Git Bash.** Git Bash (MSYS) rewrites the leading-slash
+> `/nodejs/bin/node` into a Windows path and the exec fails; if you must use Bash, prefix
+> the command with `MSYS_NO_PATHCONV=1`.
 
 Talking point: the app-level SQLi still exists (hardening doesn't patch code), **but**
 the attacker can no longer exfiltrate, escalate on the node, or move laterally — the
 runtime controls shrank the blast radius. That's the Upwind thesis: assume the app has
 bugs, constrain and detect at runtime.
 
-> **NetworkPolicy caveat:** the default EKS VPC CNI only *enforces* NetworkPolicy when
-> network-policy support is enabled on the `aws-node` add-on (recent versions), or if
-> you install Calico. See the README. Without it, the policy is accepted but not
-> enforced — don't let the egress demo surprise you on stage.
+> **NetworkPolicy enforcement — verify BEFORE the demo.** The default EKS VPC CNI only
+> *enforces* NetworkPolicy when it's explicitly enabled; otherwise the policy is accepted
+> but silently **not enforced**, and the egress probe above still prints ALLOWED after
+> hardening — the opposite of the point. On this cluster it was found **disabled**
+> (`--enable-network-policy=false`, no Calico). Enable it and re-test:
+>
+> ```powershell
+> aws eks update-addon --cluster-name <cluster> --addon-name vpc-cni \
+>   --configuration-values '{"enableNetworkPolicy":"true"}'
+> ```
+>
+> (or install Calico). The node agent restarts with enforcement on (~1–2 min); then
+> confirm the probe flips from ALLOWED to BLOCKED before you present.
